@@ -16,7 +16,8 @@ mix.js('resources/js/app.js', 'public/js')
         require('postcss-import'),
         require('tailwindcss'),
         require('autoprefixer'),
-    ]);
+    ])
+    .sass("resources/sass/authorization.scss", "public/css/authorization.min.css");
 
 if (mix.inProduction()) {
     mix.version();
