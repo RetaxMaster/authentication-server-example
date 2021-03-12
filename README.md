@@ -1,65 +1,75 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400"></a></p>
+# Servidor de autenticación
 
-<p align="center">
-<a href="https://travis-ci.org/laravel/framework"><img src="https://travis-ci.org/laravel/framework.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Esta es una practica de un servidor de autenticación usando los flujos de **OAuth 2.0** con Laravel Passport y Laravel Jetstream (Livewire).
 
-## About Laravel
+Este servidor está pensado para trabajar en sistemas distribuidos como un servidor de autenticación independiente, el API debe estar en otro servidor, por lo que el servidor del API debe llamar al endpoint de verificación de tokens de este servidor.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Flujos implementados
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Por ahora, este servidor soporta los sigueientes flujos:
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- Password Grant Tokens
+- Authorization Code Grant
 
-## Learning Laravel
+Para el flujo de Password Grant Tokens, la lógica fue definida en la rama `password-grant-tokens`, esto para hacer la práctica de únicamente permitir registro de usuarios pero no login dentro de este servidor (porque para el flujo de Password Grant Tokens la aplicación debe mandar las credenciales del usuario, aquí realmente no importa que el usuario pueda loguearse ya que le abstraemos la información de la lista de los tokens que se le han emitido)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+Para el resto de flujo, los manejamos en la rama `main`, esta sí maneja todo el sistema de registro, login y recuperación de contraseña (provisto por Jetstream con Livewire), ya que aquí si necesitamos que el usuario pueda loguearse para gestionar sus aplicaciones (además de mostrarle la página de autorización cuando una aplicación requiera su acceso)
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 1500 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Cómo usar el proyecto
 
-## Laravel Sponsors
+Simplemente se debe clonar y elegir cuál rama usar, cada vez que se cambie de rama se necesita reinstalar todas las dependencias ya que son proyectos diferentes, también se deben reejecutar todas las migraciones y el comando de `passport:install` para obtener los clientes actualizados. Passport, a través de la terminal proveerá el Client Id y el Client Secret  para pruebas. La rama del Password Grant Tokens incluye tests para rpobar todo el flujo de obtención de dichos tokens, sirve como guía para usar el servidor.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
+Los demás flujos incluyen tests para la creación de clientes, su uso está en la [documentación de Laravel Passport](https://laravel.com/docs/8.x/passport).
 
-### Premium Partners
+Para los flujos de Authorization Code Grant se recomienda registrar un usuario desde su endpoint de registro, y una vez registrado crear un cliente para él usando Laravel Tinker:
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[Many](https://www.many.co.uk)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- **[Curotec](https://www.curotec.com/)**
-- **[OP.GG](https://op.gg)**
+```
+$ php artisan tinker
+Psy Shell v0.10.6 (PHP 8.0.3 — cli) by Justin Hileman
+>>> use Laravel\Passport\Client;
+>>> $client = Client::factory()->create([
+... "user_id" => 1,
+... "redirect" => "http://127.0.0.2:8000/callback"
+... ]);
+=> Laravel\Passport\Client {#3616
+     user_id: 1,
+     name: "Swift Group",
+     redirect: "http://127.0.0.2:8000/callback",
+     personal_access_client: false,
+     password_client: false,
+     revoked: false,
+     id: "92ef7af6-8a90-4d48-ba00-0db4ed2d30bd",
+     updated_at: "2021-03-12 18:09:38",
+     created_at: "2021-03-12 18:09:38",
+   }
+>>> $client->plainSecret;
+=> "Yu6AZhaY526F4VAPNSGmv86vAlgsQCmNjqClDAG0"
+>>> 
+```
 
-## Contributing
+Es importante que el `redirect` contenga la URL de redirección exacta para ese cliente y que NO sea la misma IP/Dominio que la del servidor de autenticación.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+En cualquier caso, el `redirect` se puede cambiar desde la base de datos en la tabla `oauth_clients`
 
-## Code of Conduct
+Esto retornará el Client Id:
+```
+=> Laravel\Passport\Client {#3616
+     ...
+     id: "92ef7af6-8a90-4d48-ba00-0db4ed2d30bd",
+     ...
+   }
+```
+Y el Client Secret:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```
+>>> $client->plainSecret;
+=> "Yu6AZhaY526F4VAPNSGmv86vAlgsQCmNjqClDAG0"
+```
 
-## Security Vulnerabilities
+**Esta es la única vez que tendrás acceso a estas credenciales, así que no las pierdas.**
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Aplicaciones de prueba
 
-## License
+Para probar el flujo de **Authorization Code Grant** tenemos este proyecto de Laravel que se comunica con los endpoints de este servidor de autenticación:
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
-
-
-Mirar la librería de JWT para ver si puedo validar el token con su método de verify
+[RetaxMaster/application-for-authorization-code-grant](https://github.com/RetaxMaster/application-for-authorization-code-grant)
